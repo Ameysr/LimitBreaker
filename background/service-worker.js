@@ -145,10 +145,9 @@ async function processNextInQueue() {
       processingQueue = false;
       refreshBadge();
 
-      // Notify all done
       const settings = await getSettings();
       if (settings.notifyOnComplete && status.totalPrompts > 0) {
-        notify('All Done', `All ${status.totalPrompts} prompts have been submitted and completed`);
+        notify('All Done', 'All ' + status.totalPrompts + ' prompts have been submitted and completed');
       }
       return;
     }
@@ -156,17 +155,18 @@ async function processNextInQueue() {
     // Find the AI tab
     if (!activeAITabId) await findAITab();
     if (!activeAITabId) {
-      console.warn('[LimitBreaker] No AI tab found, waiting...');
+      console.warn('[LimitBreaker] No AI tab found, will retry on next poll');
       processingQueue = false;
       return;
     }
 
-    // Check if rate limited
+    // Check if rate limited or streaming
     let tabStatus;
     try {
       tabStatus = await chrome.tabs.sendMessage(activeAITabId, {
         type: 'CHECK_RATE_LIMIT', data: {}, source: 'background'
       });
+      console.log('[LimitBreaker] Tab status:', JSON.stringify(tabStatus));
     } catch (err) {
       console.warn('[LimitBreaker] Cannot reach content script:', err.message);
       activeAITabId = null;
@@ -182,7 +182,7 @@ async function processNextInQueue() {
     }
 
     if (tabStatus && tabStatus.streaming) {
-      // Wait for current response to finish
+      console.log('[LimitBreaker] AI is still streaming, waiting...');
       processingQueue = false;
       return;
     }
@@ -192,6 +192,7 @@ async function processNextInQueue() {
     const idx = queueCopy.findIndex(i => i.id === nextItem.id);
     if (idx !== -1) {
       queueCopy[idx].status = 'submitting';
+      queueCopy[idx].retries = (queueCopy[idx].retries || 0);
       await setQueue(queueCopy);
     }
 
@@ -204,16 +205,27 @@ async function processNextInQueue() {
     // Submit the prompt
     let result;
     try {
+      console.log('[LimitBreaker] Sending SUBMIT_PROMPT to tab:', activeAITabId);
       result = await chrome.tabs.sendMessage(activeAITabId, {
         type: 'SUBMIT_PROMPT',
         data: { text: nextItem.text },
         source: 'background'
       });
+      console.log('[LimitBreaker] Submit result:', JSON.stringify(result));
     } catch (err) {
-      // Revert to pending
+      console.error('[LimitBreaker] Submit message failed:', err.message);
       const q = await getQueue();
       const i = q.findIndex(item => item.id === nextItem.id);
-      if (i !== -1) { q[i].status = 'pending'; await setQueue(q); }
+      if (i !== -1) {
+        q[i].retries = (q[i].retries || 0) + 1;
+        if (q[i].retries >= 3) {
+          q[i].status = 'failed';
+          console.error('[LimitBreaker] Prompt failed after 3 retries, skipping');
+        } else {
+          q[i].status = 'pending';
+        }
+        await setQueue(q);
+      }
       processingQueue = false;
       return;
     }
@@ -229,26 +241,37 @@ async function processNextInQueue() {
         await addToHistory(q[i]);
       }
 
-      const newStatus = await updateStatus({
+      await updateStatus({
         completedPrompts: status.completedPrompts + 1
       });
 
       refreshBadge();
+      console.log('[LimitBreaker] Prompt submitted successfully, waiting for response...');
 
       // Wait for response to complete before submitting next
-      // Schedule next check after a delay
       setTimeout(async () => {
         processingQueue = false;
-        // Wait for the AI to finish responding
         await waitForResponseCompletion();
         processNextInQueue();
       }, 3000);
       return;
     } else {
-      // Submission failed, revert
+      // Submission failed
+      console.error('[LimitBreaker] Submission returned failure:', result ? result.error : 'no result');
       const q = await getQueue();
       const i = q.findIndex(item => item.id === nextItem.id);
-      if (i !== -1) { q[i].status = 'pending'; await setQueue(q); }
+      if (i !== -1) {
+        q[i].retries = (q[i].retries || 0) + 1;
+        if (q[i].retries >= 3) {
+          q[i].status = 'failed';
+          console.error('[LimitBreaker] Prompt failed after 3 retries, skipping');
+          notify('Prompt Failed', 'Could not submit prompt after 3 attempts. Check the console for details.');
+        } else {
+          q[i].status = 'pending';
+          console.log('[LimitBreaker] Will retry, attempt ' + q[i].retries + ' of 3');
+        }
+        await setQueue(q);
+      }
     }
   } catch (err) {
     console.error('[LimitBreaker] Queue processing error:', err);

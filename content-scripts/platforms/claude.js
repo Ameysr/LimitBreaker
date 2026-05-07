@@ -30,78 +30,95 @@ const ClaudeAdapter = {
     const lowerText = bodyText.toLowerCase();
     for (const phrase of limitPhrases) {
       if (lowerText.includes(phrase)) {
-        // Verify it's a real limit banner, not just text in a conversation
-        const modals = document.querySelectorAll('[role="dialog"], [role="alert"], [data-testid*="limit"], .modal, .overlay');
+        var modals = document.querySelectorAll('[role="dialog"], [role="alert"], [data-testid*="limit"], .modal, .overlay');
         if (modals.length > 0) return true;
-        // Check for toasts or banners
-        const toasts = document.querySelectorAll('[class*="toast"], [class*="banner"], [class*="notice"], [class*="warning"]');
-        for (const toast of toasts) {
-          if (toast.innerText.toLowerCase().includes(phrase)) return true;
+        var toasts = document.querySelectorAll('[class*="toast"], [class*="banner"], [class*="notice"], [class*="warning"]');
+        for (var j = 0; j < toasts.length; j++) {
+          if (toasts[j].innerText.toLowerCase().includes(phrase)) return true;
         }
-        // Check for sticky/fixed position elements (often used for limit banners)
-        const fixedEls = document.querySelectorAll('[style*="position: fixed"], [style*="position: sticky"]');
-        for (const el of fixedEls) {
-          if (el.innerText.toLowerCase().includes(phrase)) return true;
+        var fixedEls = document.querySelectorAll('[style*="position: fixed"], [style*="position: sticky"]');
+        for (var k = 0; k < fixedEls.length; k++) {
+          if (fixedEls[k].innerText.toLowerCase().includes(phrase)) return true;
         }
       }
     }
-    // Also check for disabled input as a signal
-    const input = this.getInputElement();
-    if (input && input.getAttribute('aria-disabled') === 'true') return true;
     return false;
   },
 
   // ── DOM Element Selectors ──
 
   getInputElement() {
-    // Claude uses a contenteditable div or a ProseMirror editor
-    return document.querySelector(
-      '[contenteditable="true"].ProseMirror, ' +
-      'div[contenteditable="true"][data-placeholder], ' +
-      'fieldset div[contenteditable="true"], ' +
-      'div.ProseMirror[contenteditable="true"]'
-    );
+    // Try multiple selectors, Claude changes their DOM frequently
+    var selectors = [
+      'div.ProseMirror[contenteditable="true"]',
+      '[contenteditable="true"].ProseMirror',
+      'div[contenteditable="true"][data-placeholder]',
+      'fieldset div[contenteditable="true"]',
+      'div[contenteditable="true"][role="textbox"]',
+      'div[contenteditable="true"]'
+    ];
+    for (var i = 0; i < selectors.length; i++) {
+      var el = document.querySelector(selectors[i]);
+      if (el) {
+        console.log('[LimitBreaker] Found Claude input with selector:', selectors[i]);
+        return el;
+      }
+    }
+    console.warn('[LimitBreaker] Could not find Claude input element');
+    return null;
   },
 
   getSendButton() {
-    // Try multiple selectors since Claude updates UI frequently
-    return document.querySelector(
-      'button[aria-label="Send Message"], ' +
-      'button[aria-label="Send message"], ' +
-      'button[data-testid="send-button"], ' +
-      'fieldset button[type="button"]:last-of-type, ' +
-      'button svg[viewBox] ~ span'
-    )?.closest('button') || this._findSendButtonByIcon();
-  },
-
-  _findSendButtonByIcon() {
-    // Fallback: find button with arrow/send SVG icon near the input
-    const buttons = document.querySelectorAll('fieldset button, form button');
-    for (const btn of buttons) {
-      const svg = btn.querySelector('svg');
-      if (svg && !btn.disabled) {
-        const rect = btn.getBoundingClientRect();
-        if (rect.bottom > window.innerHeight - 200) return btn;
+    // Try aria labels first
+    var ariaSelectors = [
+      'button[aria-label*="Send"]',
+      'button[aria-label*="send"]',
+      'button[data-testid="send-button"]',
+      'button[data-testid*="send"]'
+    ];
+    for (var i = 0; i < ariaSelectors.length; i++) {
+      var btn = document.querySelector(ariaSelectors[i]);
+      if (btn) {
+        console.log('[LimitBreaker] Found send button with:', ariaSelectors[i]);
+        return btn;
       }
     }
+
+    // Fallback: find the last enabled button near the bottom of page that contains an SVG
+    var allButtons = document.querySelectorAll('button');
+    var candidates = [];
+    for (var j = 0; j < allButtons.length; j++) {
+      var b = allButtons[j];
+      var rect = b.getBoundingClientRect();
+      // Button must be near bottom of viewport and visible
+      if (rect.bottom > window.innerHeight - 250 && rect.height > 0 && rect.width > 0) {
+        if (b.querySelector('svg') && !b.disabled) {
+          candidates.push(b);
+        }
+      }
+    }
+    if (candidates.length > 0) {
+      // Return the rightmost candidate (send buttons are usually on the right)
+      candidates.sort(function(a, b) { return b.getBoundingClientRect().right - a.getBoundingClientRect().right; });
+      console.log('[LimitBreaker] Found send button via position fallback');
+      return candidates[0];
+    }
+
+    console.warn('[LimitBreaker] Could not find Claude send button');
     return null;
   },
 
   // ── Input Detection ──
 
   isInputReady() {
-    const input = this.getInputElement();
-    if (!input) return false;
-    const send = this.getSendButton();
-    return !!input && !input.getAttribute('aria-disabled');
+    var input = this.getInputElement();
+    return !!input;
   },
 
   isResponseStreaming() {
-    // Check if Claude is currently generating a response
-    const stopBtn = document.querySelector(
-      'button[aria-label="Stop Response"], ' +
-      'button[aria-label="Stop response"], ' +
-      'button[aria-label="Stop"]'
+    var stopBtn = document.querySelector(
+      'button[aria-label*="Stop"],' +
+      'button[aria-label*="stop"]'
     );
     return !!stopBtn;
   },
@@ -109,67 +126,91 @@ const ClaudeAdapter = {
   // ── Prompt Submission ──
 
   async submitPrompt(text) {
-    const input = this.getInputElement();
-    if (!input) throw new Error('Claude input element not found');
+    var input = this.getInputElement();
+    if (!input) {
+      console.error('[LimitBreaker] Cannot submit: input element not found');
+      throw new Error('Claude input element not found');
+    }
+
+    console.log('[LimitBreaker] Submitting prompt to Claude, length:', text.length);
 
     // Focus the input
     input.focus();
-    await this._wait(200);
+    await this._wait(300);
 
     // Clear existing content
     input.innerHTML = '';
-    input.textContent = '';
+    await this._wait(100);
 
-    // Set the text content
-    // For ProseMirror, we need to create a paragraph node
-    const p = document.createElement('p');
-    p.textContent = text;
-    input.appendChild(p);
+    // Method 1: Use execCommand insertText (most reliable for contenteditable)
+    try {
+      document.execCommand('selectAll', false, null);
+      document.execCommand('delete', false, null);
+      document.execCommand('insertText', false, text);
+      console.log('[LimitBreaker] Used execCommand method');
+    } catch (e) {
+      // Method 2: Fallback to setting textContent with events
+      console.log('[LimitBreaker] execCommand failed, using fallback');
+      var p = document.createElement('p');
+      p.textContent = text;
+      input.innerHTML = '';
+      input.appendChild(p);
+    }
 
-    // Dispatch input events to trigger Claude's reactivity
+    // Fire all the events Claude might be listening to
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
-    input.dispatchEvent(new InputEvent('beforeinput', {
-      bubbles: true,
-      inputType: 'insertText',
-      data: text
-    }));
+    input.dispatchEvent(new Event('keyup', { bubbles: true }));
 
-    await this._wait(500);
+    // Wait for Claude to register the input
+    await this._wait(800);
 
-    // Click send
-    const sendBtn = this.getSendButton();
-    if (!sendBtn) throw new Error('Claude send button not found');
-    if (sendBtn.disabled) {
-      // Wait a bit and retry
-      await this._wait(1000);
-      if (sendBtn.disabled) throw new Error('Claude send button is disabled');
+    // Find and click the send button
+    var sendBtn = this.getSendButton();
+    if (!sendBtn) {
+      console.error('[LimitBreaker] Cannot submit: send button not found');
+      throw new Error('Claude send button not found');
     }
+
+    if (sendBtn.disabled) {
+      console.log('[LimitBreaker] Send button disabled, waiting...');
+      await this._wait(1500);
+      sendBtn = this.getSendButton();
+      if (!sendBtn || sendBtn.disabled) {
+        // Try pressing Enter instead
+        console.log('[LimitBreaker] Trying Enter key instead');
+        input.dispatchEvent(new KeyboardEvent('keydown', {
+          key: 'Enter', code: 'Enter', keyCode: 13,
+          bubbles: true, cancelable: true
+        }));
+        await this._wait(500);
+        return true;
+      }
+    }
+
+    console.log('[LimitBreaker] Clicking send button');
     sendBtn.click();
+    sendBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
     return true;
   },
 
-  async waitForResponse(timeoutMs = 120000) {
-    const startTime = Date.now();
-
-    // Wait for streaming to start
+  async waitForResponse(timeoutMs) {
+    timeoutMs = timeoutMs || 120000;
+    var startTime = Date.now();
     await this._wait(2000);
-
-    // Then wait for streaming to finish
     while (Date.now() - startTime < timeoutMs) {
       if (!this.isResponseStreaming()) {
-        await this._wait(1000); // Extra buffer after streaming stops
+        await this._wait(1000);
         return true;
       }
       await this._wait(1000);
     }
-
-    return false; // Timed out
+    return false;
   },
 
   _wait(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise(function(resolve) { setTimeout(resolve, ms); });
   }
 };
 
