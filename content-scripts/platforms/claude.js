@@ -230,11 +230,50 @@ const ClaudeAdapter = {
       }
 
       if (sendBtn && !sendBtn.disabled) {
-        console.log('[LimitBreaker] Clicking send button');
+        console.log('[LimitBreaker] Clicking send button with full event sequence');
+
+        // Simulate a real mouse click with full event chain
+        var rect = sendBtn.getBoundingClientRect();
+        var cx = rect.left + rect.width / 2;
+        var cy = rect.top + rect.height / 2;
+        var evtOpts = { bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy };
+
+        sendBtn.dispatchEvent(new PointerEvent('pointerover', evtOpts));
+        sendBtn.dispatchEvent(new PointerEvent('pointerenter', evtOpts));
+        sendBtn.dispatchEvent(new MouseEvent('mouseover', evtOpts));
+        sendBtn.dispatchEvent(new MouseEvent('mouseenter', evtOpts));
+        sendBtn.dispatchEvent(new PointerEvent('pointerdown', { ...evtOpts, button: 0 }));
+        sendBtn.dispatchEvent(new MouseEvent('mousedown', { ...evtOpts, button: 0 }));
+        sendBtn.focus();
+        await this._wait(50);
+        sendBtn.dispatchEvent(new PointerEvent('pointerup', { ...evtOpts, button: 0 }));
+        sendBtn.dispatchEvent(new MouseEvent('mouseup', { ...evtOpts, button: 0 }));
+        sendBtn.dispatchEvent(new MouseEvent('click', { ...evtOpts, button: 0 }));
+
+        await this._wait(500);
+
+        // Check if the text was cleared (meaning Claude accepted the input)
+        var afterText = input.textContent.trim();
+        if (afterText.length === 0 || afterText !== text) {
+          console.log('[LimitBreaker] === Submission complete (click worked) ===');
+          return true;
+        }
+
+        // If text still there, click didn't work. Try native click.
+        console.log('[LimitBreaker] Pointer events didnt work, trying native click');
         sendBtn.click();
-        await this._wait(300);
-        console.log('[LimitBreaker] === Submission complete ===');
-        return true;
+        await this._wait(500);
+
+        afterText = input.textContent.trim();
+        if (afterText.length === 0 || afterText !== text) {
+          console.log('[LimitBreaker] === Submission complete (native click) ===');
+          return true;
+        }
+
+        // Still didn't work, try Enter key on the input
+        console.log('[LimitBreaker] Click methods failed, trying Enter key');
+        input.focus();
+        await this._wait(100);
       }
     }
 
