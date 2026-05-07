@@ -1,5 +1,5 @@
 /**
- * QueuePilot — Prompt Injector
+ * LimitBreaker — Prompt Injector
  * Handles the mechanics of injecting text into AI platform input fields.
  * Used by platform adapters as a shared utility.
  */

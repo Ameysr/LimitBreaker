@@ -1,12 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "QueuePilot",
+  "name": "LimitBreaker",
   "version": "1.0.0",
   "description": "Never lose your AI workflow to rate limits. Queue prompts, auto-submit when limits reset, stay productive.",
   "permissions": [
     "storage",
     "notifications",
-    "alarms"
+    "alarms",
+    "tabs",
+    "activeTab"
   ],
   "action": {
     "default_popup": "popup/popup.html",
@@ -22,8 +24,7 @@
     "128": "icons/icon128.png"
   },
   "background": {
-    "service_worker": "background/service-worker.js",
-    "type": "module"
+    "service_worker": "background/service-worker.js"
   },
   "content_scripts": [
     {

@@ -1,5 +1,5 @@
 /**
- * QueuePilot — Content Script Detector
+ * LimitBreaker — Content Script Detector
  * Main content script that runs on AI platform pages.
  * Detects rate limits using platform adapters and reports to background worker.
  */
@@ -41,7 +41,7 @@
       if (isLimited && !wasRateLimited) {
         // Just got rate limited
         wasRateLimited = true;
-        console.log(`[QueuePilot] Rate limit detected on ${activeAdapter.displayName}`);
+        console.log(`[LimitBreaker] Rate limit detected on ${activeAdapter.displayName}`);
         Messenger.sendToBackground(MessageTypes.RATE_LIMIT_DETECTED, {
           platform: activeAdapter.name,
           timestamp: Date.now(),
@@ -50,14 +50,14 @@
       } else if (!isLimited && wasRateLimited) {
         // Rate limit just cleared
         wasRateLimited = false;
-        console.log(`[QueuePilot] Rate limit cleared on ${activeAdapter.displayName}`);
+        console.log(`[LimitBreaker] Rate limit cleared on ${activeAdapter.displayName}`);
         Messenger.sendToBackground(MessageTypes.RATE_LIMIT_CLEARED, {
           platform: activeAdapter.name,
           timestamp: Date.now()
         });
       }
     } catch (err) {
-      console.warn('[QueuePilot] Error checking rate limit:', err.message);
+      console.warn('[LimitBreaker] Error checking rate limit:', err.message);
     }
   }
 
@@ -131,11 +131,11 @@
   function init() {
     activeAdapter = detectPlatform();
     if (!activeAdapter) {
-      console.log('[QueuePilot] No matching platform adapter for this page');
+      console.log('[LimitBreaker] No matching platform adapter for this page');
       return;
     }
 
-    console.log(`[QueuePilot] Loaded on ${activeAdapter.displayName}`);
+    console.log(`[LimitBreaker] Loaded on ${activeAdapter.displayName}`);
 
     // Tell background we're ready
     Messenger.sendToBackground(MessageTypes.PLATFORM_READY, {

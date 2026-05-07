@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QueuePilot</title>
+  <title>LimitBreaker</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -14,7 +14,7 @@
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
         </svg>
-        <span class="logo-text">QueuePilot</span>
+        <span class="logo-text">LimitBreaker</span>
       </div>
     </div>
     <div class="header-right">
@@ -25,6 +25,12 @@
       </button>
     </div>
   </header>
+
+  <!-- ── Platform Detection Bar ── -->
+  <div id="platformBar" class="platform-bar">
+    <span id="platformIcon" class="platform-icon">🔍</span>
+    <span id="platformName">Scanning for AI platforms...</span>
+  </div>
 
   <!-- ── Status Bar ── -->
   <div id="statusBar" class="status-bar status-idle">

@@ -1,5 +1,5 @@
 /**
- * QueuePilot — Chrome Storage API Wrapper
+ * LimitBreaker — Chrome Storage API Wrapper
  * Handles all persistent data: queue, settings, platform state.
  */
 

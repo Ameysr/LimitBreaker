@@ -1,5 +1,5 @@
 /**
- * QueuePilot — Gemini Platform Adapter
+ * LimitBreaker — Gemini Platform Adapter
  * Handles DOM interactions specific to gemini.google.com
  */
 

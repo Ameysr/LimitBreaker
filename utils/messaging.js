@@ -1,5 +1,5 @@
 /**
- * QueuePilot — Chrome Message Passing Helpers
+ * LimitBreaker — Chrome Message Passing Helpers
  * Type-safe message definitions for communication between
  * content scripts, background worker, and popup.
  */
@@ -39,7 +39,7 @@ const Messenger = {
     try {
       return await chrome.runtime.sendMessage({ type, data, source: 'content' });
     } catch (err) {
-      console.warn('[QueuePilot] Failed to send to background:', err.message);
+      console.warn('[LimitBreaker] Failed to send to background:', err.message);
       return null;
     }
   },
@@ -51,7 +51,7 @@ const Messenger = {
     try {
       return await chrome.tabs.sendMessage(tabId, { type, data, source: 'background' });
     } catch (err) {
-      console.warn('[QueuePilot] Failed to send to tab:', err.message);
+      console.warn('[LimitBreaker] Failed to send to tab:', err.message);
       return null;
     }
   },
@@ -69,7 +69,7 @@ const Messenger = {
 
       if (result instanceof Promise) {
         result.then(sendResponse).catch(err => {
-          console.error('[QueuePilot] Handler error:', err);
+          console.error('[LimitBreaker] Handler error:', err);
           sendResponse({ error: err.message });
         });
         return true; // Keep channel open for async response

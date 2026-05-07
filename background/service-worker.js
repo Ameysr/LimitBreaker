@@ -1,5 +1,5 @@
 /**
- * QueuePilot — Background Service Worker
+ * LimitBreaker — Background Service Worker
  * Orchestrates the entire queue system: polling, auto-submit, notifications, alarms.
  */
 
@@ -94,12 +94,12 @@ async function notify(title, message, id = 'qp_' + Date.now()) {
     chrome.notifications.create(id, {
       type: 'basic',
       iconUrl: 'icons/icon128.png',
-      title: `QueuePilot: ${title}`,
+      title: 'LimitBreaker: ' + title,
       message: message,
       priority: 2
     });
   } catch (err) {
-    console.warn('[QueuePilot] Notification failed:', err.message);
+    console.warn('[LimitBreaker] Notification failed:', err.message);
   }
 }
 
@@ -156,7 +156,7 @@ async function processNextInQueue() {
     // Find the AI tab
     if (!activeAITabId) await findAITab();
     if (!activeAITabId) {
-      console.warn('[QueuePilot] No AI tab found, waiting...');
+      console.warn('[LimitBreaker] No AI tab found, waiting...');
       processingQueue = false;
       return;
     }
@@ -168,7 +168,7 @@ async function processNextInQueue() {
         type: 'CHECK_RATE_LIMIT', data: {}, source: 'background'
       });
     } catch (err) {
-      console.warn('[QueuePilot] Cannot reach content script:', err.message);
+      console.warn('[LimitBreaker] Cannot reach content script:', err.message);
       activeAITabId = null;
       processingQueue = false;
       return;
@@ -251,7 +251,7 @@ async function processNextInQueue() {
       if (i !== -1) { q[i].status = 'pending'; await setQueue(q); }
     }
   } catch (err) {
-    console.error('[QueuePilot] Queue processing error:', err);
+    console.error('[LimitBreaker] Queue processing error:', err);
   }
 
   processingQueue = false;
@@ -273,10 +273,10 @@ async function waitForResponseCompletion(timeoutMs = 120000) {
 
 // ── Alarm-based Polling ──
 
-chrome.alarms.create('queuepilot-poll', { periodInMinutes: 0.5 }); // Every 30 seconds
+chrome.alarms.create('LimitBreaker-poll', { periodInMinutes: 0.5 }); // Every 30 seconds
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name !== 'queuepilot-poll') return;
+  if (alarm.name !== 'LimitBreaker-poll') return;
 
   const status = await getStatus();
   const queue = await getQueue();
@@ -324,7 +324,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const result = handler(message.data, sender);
   if (result instanceof Promise) {
     result.then(sendResponse).catch(err => {
-      console.error('[QueuePilot] Handler error:', err);
+      console.error('[LimitBreaker] Handler error:', err);
       sendResponse({ error: err.message });
     });
     return true;
@@ -496,4 +496,4 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
 
 // ── Init ──
 refreshBadge();
-console.log('[QueuePilot] Background service worker started');
+console.log('[LimitBreaker] Background service worker started');

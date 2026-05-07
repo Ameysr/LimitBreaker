@@ -1,5 +1,5 @@
 /**
- * QueuePilot — ChatGPT Platform Adapter
+ * LimitBreaker — ChatGPT Platform Adapter
  * Handles DOM interactions specific to chatgpt.com / chat.openai.com
  */
 

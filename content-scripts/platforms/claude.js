@@ -1,5 +1,5 @@
 /**
- * QueuePilot — Claude.ai Platform Adapter
+ * LimitBreaker — Claude.ai Platform Adapter
  * Handles DOM interactions specific to claude.ai
  */
 
