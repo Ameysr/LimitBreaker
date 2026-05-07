@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "QueuePilot",
+  "version": "1.0.0",
+  "description": "Never lose your AI workflow to rate limits. Queue prompts, auto-submit when limits reset, stay productive.",
+  "permissions": [
+    "storage",
+    "notifications",
+    "alarms"
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://claude.ai/*",
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://gemini.google.com/*"
+      ],
+      "js": [
+        "utils/storage.js",
+        "utils/messaging.js",
+        "content-scripts/platforms/claude.js",
+        "content-scripts/platforms/chatgpt.js",
+        "content-scripts/platforms/gemini.js",
+        "content-scripts/injector.js",
+        "content-scripts/detector.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
